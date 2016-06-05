@@ -57,11 +57,30 @@ class mayaOCIO(Application):
         Callback from when the menu is clicked.
         """
         
-        os.environ["EVENT"] = self.getEventName()
-        self.log_debug("set environment variable 'EVENT' to %s" % self.getEventName())
+        event               = self.getEventName()
+        cameraColorspace    = self.getCameraColorspace()
+        OCIOConfigPath      = self.getOCIOConfigPath()
 
-        os.environ['CAMERA'] = self.getCameraColorspace()
-        self.log_debug("set environment variable 'CAMERA' to %s" % self.getCameraColorspace())
+        if not OCIOConfigPath:
+            QtGui.QMessageBox.warning(None, 'OCIO Warning', "Cannot find the ocio config file.\nIt is either missing from the template.yml or the file doesn't exist on disk")
+            return
+
+        if event and not cameraColorspace:
+            QtGui.QMessageBox.warning(None, 'OCIO Warning', "The camera colorspace of shot %s has not been defined.\nPlease go to our shotgun website and fill the camera colorspace field with the appropriate colorspace for this shot." % event)
+            return
+
+        if not event:
+            QtGui.QMessageBox.warning(None, 'OCIO Warning', "This is not a shot, so a general lut will be used for the 'GlobalView' view transform.\n The 'ShotView' view tranform will not work.")
+            event = 'EV101'
+            cameraColorspace = 'AlexaV3LogC'
+
+
+        os.environ["EVENT"] = event
+        self.log_debug("set environment variable 'EVENT' to %s" % event)
+
+        
+        os.environ['CAMERA'] = cameraColorspace
+        self.log_debug("set environment variable 'CAMERA' to %s" % cameraColorspace)
 
         # first, clean OCIO settings in Arnold Render View
 
@@ -72,8 +91,10 @@ class mayaOCIO(Application):
         # now setting Arnold Render View to use OCIO, and setting the project's ocio config file path
 
         cmds.arnoldRenderView( opt=( "LUT.OCIO", "1")  )
-        cmds.arnoldRenderView( opt=("LUT.OCIO File", self.getOCIOConfigPath() ))
+        cmds.arnoldRenderView( opt=("LUT.OCIO File", OCIOConfigPath ))
 
+        QtGui.QMessageBox.information(None, 'OCIO info', "OCIO settings have been set for shot %s which has a %s camera colorspace" % (event, cameraColorspace))
+        # add a check to see if the EVxxx_Grade.cube or .3dl exist on disk and warn user of this.
 
     ###############################################################################################
     # implementation
@@ -86,18 +107,20 @@ class mayaOCIO(Application):
         if 'ocio_config' in tk.templates.keys():
             ocioSubPath = tk.templates['ocio_config'].definition   # should return Compositing\OCIO\config.ocio
             root = tk.roots['secondary']
-
             ocioPath = os.path.join(root, ocioSubPath)
             ocioPath = ocioPath.replace(os.path.sep, "/")
-
+        else: return None
+        
+        if os.path.isfile(ocioPath):
             return ocioPath
+        else: return None
 
 
     def getEventName(self):
 
         if self.context.entity["type"] == 'Shot':
             return self.context.entity['name']
-        else: return 'EV101' # if the context is not a shot, then default to EV101
+        else: return None
 
     def getCameraColorspace(self):
 
@@ -112,11 +135,4 @@ class mayaOCIO(Application):
             if 'sg_camera_colorspace' in data:
                 if data['sg_camera_colorspace'] is not None:
                     return data['sg_camera_colorspace']
-                else:
-                    QtGui.QMessageBox.information(None, "OCIO Warning", "The camera colorspace has not been set.\nPlease go to our Shotgun website, and specify the correct colorspace in the Shot Info page.\nIn the meantime, sRGB is assumed")
-                    return 'sRGB' # if no camera colorspace has been set, assume sRGB
-            else:
-                self.log_debug("Could not find the sg_camera_colorspace field in Shotgun")
-        else: #if this is not a Shot
-            self.log_debug("The context is NOT 'Shot'")
-            return 'sRGB'
+        return None
