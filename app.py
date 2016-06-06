@@ -69,9 +69,13 @@ class mayaOCIO(Application):
             QtGui.QMessageBox.warning(None, 'OCIO Warning', "The camera colorspace of shot %s has not been defined.\nPlease go to our shotgun website and fill the camera colorspace field with the appropriate colorspace for this shot." % event)
             return
 
+        if event:
+            msg = "OCIO settings have been set for shot %s which has a %s camera colorspace" % (event, cameraColorspace)
+
         if not event:
             event = self.get_setting('default_event')
             cameraColorspace = self.get_setting('default_camera_colorspace')
+            msg = "This is not a shot, so by default we use the luts for %s and assume is has a %s colorspace" % (event, cameraColorspace)
 
 
         os.environ["EVENT"] = event
@@ -80,6 +84,7 @@ class mayaOCIO(Application):
         
         os.environ['CAMERA'] = cameraColorspace
         self.log_debug("set environment variable 'CAMERA' to %s" % cameraColorspace)
+
 
         # first, clean OCIO settings in Arnold Render View
 
@@ -92,11 +97,8 @@ class mayaOCIO(Application):
         cmds.arnoldRenderView( opt=( "LUT.OCIO", "1")  )
         cmds.arnoldRenderView( opt=("LUT.OCIO File", OCIOConfigPath ))
 
+        QtGui.QMessageBox.information(None, 'OCIO info', msg)
 
-        if event:
-            QtGui.QMessageBox.information(None, 'OCIO info', "OCIO settings have been set for shot %s which has a %s camera colorspace" % (event, cameraColorspace))
-        if not event:
-            QtGui.QMessageBox.information(None, 'OCIO info', "This is not a shot, so by default we use the luts for %s and assume is has a %s colorspace" % (event, cameraColorspace))
 
         # add a check to see if the EVxxx_Grade.cube or .3dl exist on disk and warn user of this.
 
