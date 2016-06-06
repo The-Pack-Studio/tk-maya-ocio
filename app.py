@@ -70,9 +70,8 @@ class mayaOCIO(Application):
             return
 
         if not event:
-            QtGui.QMessageBox.warning(None, 'OCIO Warning', "This is not a shot, so a general lut will be used for the 'GlobalView' view transform.\n The 'ShotView' view tranform will not work.")
-            event = 'EV101'
-            cameraColorspace = 'AlexaV3LogC'
+            event = self.get_setting('default_event')
+            cameraColorspace = self.get_setting('default_camera_colorspace')
 
 
         os.environ["EVENT"] = event
@@ -93,7 +92,12 @@ class mayaOCIO(Application):
         cmds.arnoldRenderView( opt=( "LUT.OCIO", "1")  )
         cmds.arnoldRenderView( opt=("LUT.OCIO File", OCIOConfigPath ))
 
-        QtGui.QMessageBox.information(None, 'OCIO info', "OCIO settings have been set for shot %s which has a %s camera colorspace" % (event, cameraColorspace))
+
+        if event:
+            QtGui.QMessageBox.information(None, 'OCIO info', "OCIO settings have been set for shot %s which has a %s camera colorspace" % (event, cameraColorspace))
+        if not event:
+            QtGui.QMessageBox.information(None, 'OCIO info', "This is not a shot, so by default we use the luts for %s and assume is has a %s colorspace" % (event, cameraColorspace))
+
         # add a check to see if the EVxxx_Grade.cube or .3dl exist on disk and warn user of this.
 
     ###############################################################################################
@@ -103,14 +107,12 @@ class mayaOCIO(Application):
     def getOCIOConfigPath(self):
 
         tk = self.sgtk
+        ocio = self.get_setting('ocio_template')
+        ocioSubPath = tk.templates[ocio].definition   # should return Compositing\OCIO\config.ocio
+        root = tk.roots['secondary']
+        ocioPath = os.path.join(root, ocioSubPath)
+        ocioPath = ocioPath.replace(os.path.sep, "/")
 
-        if 'ocio_config' in tk.templates.keys():
-            ocioSubPath = tk.templates['ocio_config'].definition   # should return Compositing\OCIO\config.ocio
-            root = tk.roots['secondary']
-            ocioPath = os.path.join(root, ocioSubPath)
-            ocioPath = ocioPath.replace(os.path.sep, "/")
-        else: return None
-        
         if os.path.isfile(ocioPath):
             return ocioPath
         else: return None
