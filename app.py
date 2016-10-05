@@ -88,18 +88,21 @@ class mayaOCIO(Application):
 
         # first, clean OCIO settings in Arnold Render View
 
-        cmds.arnoldRenderView( opt=( "LUT.OCIO", "0")  )
-        cmds.arnoldRenderView( opt=("LUT.OCIO File", "" ))
-        sleep(0.5)
+        # cmds.arnoldRenderView( opt=( "Color Management.OCIO", "0")  )
+        # cmds.arnoldRenderView( opt=("Color Management.OCIO File", "" ))
+        # sleep(0.5)
 
         # now setting Arnold Render View to use OCIO, and setting the project's ocio config file path
 
-        cmds.arnoldRenderView( opt=( "LUT.OCIO", "1")  )
-        cmds.arnoldRenderView( opt=("LUT.OCIO File", OCIOConfigPath ))
+        cmds.arnoldRenderView( opt=( "Color Management.OCIO", "1")  )
+        cmds.arnoldRenderView( opt=("Color Management.OCIO File", OCIOConfigPath ))
 
         QtGui.QMessageBox.information(None, 'OCIO info', msg)
 
-
+        # in mel :
+        # arnoldRenderView -opt "Color Management.OCIO" "1"
+        # arnoldRenderView -opt "Color Management.OCIO File" "Y:/Projects/Test_Donat_Nuke10/Compositing/Setups/OCIO/config.ocio"
+        
         # add a check to see if the EVxxx_Grade.cube or .3dl exist on disk and warn user of this.
 
     ###############################################################################################
