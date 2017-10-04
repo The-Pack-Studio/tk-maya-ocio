@@ -29,15 +29,23 @@ class mayaOCIO(Application):
         """
         App entry point
         """
+        self.log_debug("start maya ocio app")
         # make sure that the context has an entity associated - otherwise it wont work!
-        if self.context.entity is None:
-            raise tank.TankError("Cannot load the Maya OCIO application! "
-                                 "Your current context does not have an entity (e.g. "
-                                 "a current Shot, current Asset etc). This app requires "
-                                 "an entity as part of the context in order to work.")
 
-        self.engine.register_command("Set OCIO for Arnold Render View", self.run_app)
+        if self.context.entity is not None:
 
+            event               = self.getEventName()
+            cameraColorspace    = self.getCameraColorspace()
+
+            if event and not cameraColorspace:
+              QtGui.QMessageBox.warning(None, 'OCIO Warning', "The camera colorspace of shot %s has not been defined.\nPlease go to our shotgun website and fill the camera colorspace field with the appropriate colorspace for this shot." % event)
+
+
+            os.environ["EVENT"] = event
+            self.log_debug("set environment variable 'EVENT' to %s" % event)
+
+            os.environ['CAMERA'] = cameraColorspace
+            self.log_debug("set environment variable 'CAMERA' to %s" % cameraColorspace)
 
     @property
     def context_change_allowed(self):
@@ -52,75 +60,10 @@ class mayaOCIO(Application):
         """
         self.log_debug("Destroying maya ocio app")
 
-    def run_app(self):
-        """
-        Callback from when the menu is clicked.
-        """
-        
-        event               = self.getEventName()
-        cameraColorspace    = self.getCameraColorspace()
-        OCIOConfigPath      = self.getOCIOConfigPath()
 
-        if not OCIOConfigPath:
-            QtGui.QMessageBox.warning(None, 'OCIO Warning', "Cannot find the ocio config file.\nIt is either missing from the template.yml or the file doesn't exist on disk")
-            return
-
-        if event and not cameraColorspace:
-            QtGui.QMessageBox.warning(None, 'OCIO Warning', "The camera colorspace of shot %s has not been defined.\nPlease go to our shotgun website and fill the camera colorspace field with the appropriate colorspace for this shot." % event)
-            return
-
-        if event:
-            msg = "OCIO settings have been set for shot %s which has a %s camera colorspace" % (event, cameraColorspace)
-
-        if not event:
-            event = self.get_setting('default_event')
-            cameraColorspace = self.get_setting('default_camera_colorspace')
-            msg = "This is not a shot, so by default we use the luts for %s and assume is has a %s colorspace" % (event, cameraColorspace)
-
-
-        os.environ["EVENT"] = event
-        self.log_debug("set environment variable 'EVENT' to %s" % event)
-
-        
-        os.environ['CAMERA'] = cameraColorspace
-        self.log_debug("set environment variable 'CAMERA' to %s" % cameraColorspace)
-
-
-        # first, clean OCIO settings in Arnold Render View
-
-        # cmds.arnoldRenderView( opt=( "Color Management.OCIO", "0")  )
-        # cmds.arnoldRenderView( opt=("Color Management.OCIO File", "" ))
-        # sleep(0.5)
-
-        # now setting Arnold Render View to use OCIO, and setting the project's ocio config file path
-
-        cmds.arnoldRenderView( opt=( "Color Management.OCIO", "1")  )
-        cmds.arnoldRenderView( opt=("Color Management.OCIO File", OCIOConfigPath ))
-
-        QtGui.QMessageBox.information(None, 'OCIO info', msg)
-
-        # in mel :
-        # arnoldRenderView -opt "Color Management.OCIO" "1"
-        # arnoldRenderView -opt "Color Management.OCIO File" "Y:/Projects/Test_Donat_Nuke10/Compositing/Setups/OCIO/config.ocio"
-        
-        # add a check to see if the EVxxx_Grade.cube or .3dl exist on disk and warn user of this.
 
     ###############################################################################################
     # implementation
-
-
-    def getOCIOConfigPath(self):
-
-        tk = self.sgtk
-        ocio = self.get_setting('ocio_template')
-        ocioSubPath = tk.templates[ocio].definition   # should return Compositing\OCIO\config.ocio
-        root = tk.roots['secondary']
-        ocioPath = os.path.join(root, ocioSubPath)
-        ocioPath = ocioPath.replace(os.path.sep, "/")
-
-        if os.path.isfile(ocioPath):
-            return ocioPath
-        else: return None
 
 
     def getEventName(self):
