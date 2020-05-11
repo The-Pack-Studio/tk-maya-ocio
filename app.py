@@ -21,7 +21,7 @@ from tank.platform.qt import QtCore, QtGui
 import tank
 import pymel.core as pm
 import maya.cmds as cmds
-from time import sleep
+
 
 class mayaOCIO(Application):
 
@@ -34,18 +34,23 @@ class mayaOCIO(Application):
 
         if self.context.entity is not None:
 
-            event               = self.getEventName()
-            cameraColorspace    = self.getCameraColorspace()
+            event = self.getEventName()
+            cameraColorspace, sequence = self.getCameraColorspaceAndSequence()
 
             if event and not cameraColorspace:
               QtGui.QMessageBox.warning(None, 'OCIO Warning', "The camera colorspace of shot %s has not been defined.\nPlease go to our shotgun website and fill the camera colorspace field with the appropriate colorspace for this shot." % event)
 
 
             os.environ["EVENT"] = event
-            self.log_debug("set environment variable 'EVENT' to %s" % event)
+            self.log_debug("Set environment variable 'EVENT' to %s" % event)
+
+            os.environ['SEQUENCE'] = sequence
+            self.log_debug("Set environment variable 'SEQUENCE' to %s" % sequence)
 
             os.environ['CAMERA'] = cameraColorspace
-            self.log_debug("set environment variable 'CAMERA' to %s" % cameraColorspace)
+            self.log_debug("Set environment variable 'CAMERA' to %s" % cameraColorspace)
+
+
 
     @property
     def context_change_allowed(self):
@@ -72,17 +77,24 @@ class mayaOCIO(Application):
             return self.context.entity['name']
         else: return None
 
-    def getCameraColorspace(self):
+    def getCameraColorspaceAndSequence(self):
 
         tk = self.sgtk
+
+        cameraColorspace = None
+        sequence = None
 
         if self.context.entity["type"] == 'Shot':
             self.log_debug("The context is 'Shot'")
 
             sg_filters = [["id", "is", self.context.entity["id"]]]  #  code of the current shot
-            sg_fields = ['sg_camera_colorspace', 'sg_review_colorspace']
+            sg_fields = ['sg_camera_colorspace', 'sg_review_colorspace', 'sg_sequence']
             data = tk.shotgun.find_one(self.context.entity["type"], filters=sg_filters, fields=sg_fields)
             if 'sg_camera_colorspace' in data:
-                if data['sg_camera_colorspace'] is not None:
-                    return data['sg_camera_colorspace']
-        return None
+                if data['sg_camera_colorspace']:
+                    cameraColorspace = data['sg_camera_colorspace']
+            if 'sg_sequence' in data:
+                if data['sg_sequence']:
+                    sequence = data['sg_sequence']['name']
+        
+        return cameraColorspace, sequence
