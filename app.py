@@ -21,6 +21,7 @@ from tank.platform.qt import QtCore, QtGui
 import tank
 import pymel.core as pm
 import maya.cmds as cmds
+import maya.mel as mel 
 
 
 class mayaOCIO(Application):
@@ -29,10 +30,10 @@ class mayaOCIO(Application):
         """
         App entry point
         """
-        self.log_debug("start maya ocio app")
-        # make sure that the context has an entity associated - otherwise it wont work!
 
         if self.context.entity is not None:
+            # make sure that the context has an entity associated - otherwise it wont work!
+            self.log_debug("start maya ocio app")
 
             event = self.getEventName()
             cameraColorspace, sequence = self.getCameraColorspaceAndSequence()
@@ -50,14 +51,21 @@ class mayaOCIO(Application):
             os.environ['CAMERA'] = cameraColorspace
             self.log_debug("Set environment variable 'CAMERA' to %s" % cameraColorspace)
 
+            #refresh the color management to force a rebuild of the context
+            mel.eval('colorManagementPrefs -refresh')
 
+        else:
+            self.log_debug("No entity found, not starting the maya ocio app")
 
     @property
     def context_change_allowed(self):
         """
         Specifies that context changes are allowed.
+
+        Donat note to self: I return False here, meaning that when the context changes
+        > This app will be destroyed and reloaded, hence the new env vars will be evaluated
         """
-        return True
+        return False
 
     def destroy_app(self):
         """
