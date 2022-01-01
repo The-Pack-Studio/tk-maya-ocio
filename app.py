@@ -21,7 +21,7 @@ from tank.platform.qt import QtCore, QtGui
 import tank
 import pymel.core as pm
 import maya.cmds as cmds
-import maya.mel as mel 
+
 
 
 class mayaOCIO(Application):
@@ -31,19 +31,16 @@ class mayaOCIO(Application):
         App entry point
         """
 
+        # make sure that the context has an entity associated - otherwise it wont work!
         if self.context.entity is not None:
-            # make sure that the context has an entity associated - otherwise it wont work!
-            self.log_debug("start maya ocio app")
+            
+            self._setupColorManagement()
 
-            event = self.getEventName()
-            cameraColorspace, sequence = self.getCameraColorspaceAndSequence()
+            entity_name = self.context.entity['name']
+            cameraColorspace, sequence = self._getCameraColorspaceAndSequence()
 
-            if event and not cameraColorspace:
-              QtGui.QMessageBox.warning(None, 'OCIO Warning', "The camera colorspace of shot %s has not been defined.\nPlease go to our shotgun website and fill the camera colorspace field with the appropriate colorspace for this shot." % event)
-
-
-            os.environ["EVENT"] = event
-            self.log_debug("Set environment variable 'EVENT' to %s" % event)
+            os.environ["EVENT"] = entity_name
+            self.log_debug("Set environment variable 'EVENT' to %s" % entity_name)
 
             os.environ['SEQUENCE'] = sequence
             self.log_debug("Set environment variable 'SEQUENCE' to %s" % sequence)
@@ -52,7 +49,7 @@ class mayaOCIO(Application):
             self.log_debug("Set environment variable 'CAMERA' to %s" % cameraColorspace)
 
             #refresh the color management to force a rebuild of the context
-            mel.eval('colorManagementPrefs -refresh')
+            cmds.colorManagementPrefs(refresh=True)
 
         else:
             self.log_debug("No entity found, not starting the maya ocio app")
@@ -75,34 +72,65 @@ class mayaOCIO(Application):
 
 
 
-    ###############################################################################################
-    # implementation
+    ### private methods
 
 
-    def getEventName(self):
-
-        if self.context.entity["type"] == 'Shot':
-            return self.context.entity['name']
-        else: return None
-
-    def getCameraColorspaceAndSequence(self):
+    def _getCameraColorspaceAndSequence(self):
 
         tk = self.sgtk
 
         cameraColorspace = None
         sequence = None
 
-        if self.context.entity["type"] == 'Shot':
-            self.log_debug("The context is 'Shot'")
-
-            sg_filters = [["id", "is", self.context.entity["id"]]]  #  code of the current shot
-            sg_fields = ['sg_camera_colorspace', 'sg_review_colorspace', 'sg_sequence']
-            data = tk.shotgun.find_one(self.context.entity["type"], filters=sg_filters, fields=sg_fields)
-            if 'sg_camera_colorspace' in data:
-                if data['sg_camera_colorspace']:
-                    cameraColorspace = data['sg_camera_colorspace']
-            if 'sg_sequence' in data:
-                if data['sg_sequence']:
-                    sequence = data['sg_sequence']['name']
+        sg_filters = [["id", "is", self.context.entity["id"]]]  #  code of the current shot/asset
+        sg_fields = ['sg_camera_colorspace', 'sg_review_colorspace', 'sg_sequence']
+        data = tk.shotgun.find_one(self.context.entity["type"], filters=sg_filters, fields=sg_fields)
+        if 'sg_camera_colorspace' in data:
+            if data['sg_camera_colorspace']:
+                cameraColorspace = data['sg_camera_colorspace']
+        if 'sg_sequence' in data:
+            if data['sg_sequence']:
+                sequence = data['sg_sequence']['name']
         
         return cameraColorspace, sequence
+
+
+    def _setupColorManagement(self):
+
+        tk = self.sgtk
+
+        self.logger.info("Enabling color management")
+        cmds.colorManagementPrefs(e=True, cmEnabled=True) 
+
+        if not 'ocio_config' in list(tk.templates.keys()):
+            self.logger.error("Could not find ocio_config section in the shotguntemplates")
+            return
+
+
+        ocioSubPath = tk.templates['ocio_config'].definition   # Compositing\OCIO\config.ocio
+        root = tk.roots['secondary']
+        ocioPath = os.path.join(root, ocioSubPath)
+        if os.path.isfile(ocioPath):
+            ocioPath = ocioPath.replace(os.path.sep, "/") # for maya
+            self.logger.info("Setting maya's ocio config to use : {}".format(ocioPath))
+            cmds.colorManagementPrefs(e=True, configFilePath=ocioPath)
+        else:
+            self.logger.error("OCIO file {} is missing from disk".format(ocioPath))
+            return
+        
+        # color managed pots :
+        cmds.colorManagementPrefs(e=True, colorManagePots=True)
+
+        color_rules = cmds.colorManagementFileRules(listRules=True)
+
+        if "ColorSpaceNamePathSearch" not in color_rules:
+            cmds.colorManagementFileRules(addRule="ColorSpaceNamePathSearch") # add that built in rule (bugs when cm prefs are open)
+
+        # disable the 'Apply Output Transform to Renderer'
+        cmds.colorManagementPrefs(e=True, outputTransformEnabled=False, outputTarget="renderer" )
+
+        # enable the 'Apply Output Transform to playblast'
+        cmds.colorManagementPrefs(e=True, outputTransformEnabled=True, outputTarget="playblast" )
+
+        # make the playblast use a color conversion, not a view transform
+        cmds.colorManagementPrefs(e=True, outputTransformUseColorConversion = True, outputTarget="playblast")

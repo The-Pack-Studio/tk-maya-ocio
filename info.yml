@@ -16,14 +16,6 @@ configuration:
         type: template
         description: Reference to the template which locates the OCIO config file on disk
         allows_empty: False
-    default_camera_colorspace:
-        type: str
-        description: Camera colorspace to be used when not working on a shot. This is needed for GlobalView and ShotView to work
-        default : RedLogFilm
-    default_event:
-        type: str
-        description: Default event name that will be used when the context is not a shot. Make sure the necessary .cc file for that shot exists on disk
-        allows_empty: False
 
 # the Shotgun fields that this app needs in order to operate correctly
 requires_shotgun_fields:
