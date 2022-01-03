@@ -31,10 +31,11 @@ class mayaOCIO(Application):
         App entry point
         """
 
+
+        self._setupColorManagement()
+
         # make sure that the context has an entity associated - otherwise it wont work!
         if self.context.entity is not None:
-            
-            self._setupColorManagement()
 
             entity_name = self.context.entity['name']
             cameraColorspace, sequence = self._getCameraColorspaceAndSequence()
@@ -48,11 +49,10 @@ class mayaOCIO(Application):
             os.environ['CAMERA'] = cameraColorspace
             self.log_debug("Set environment variable 'CAMERA' to %s" % cameraColorspace)
 
-            #refresh the color management to force a rebuild of the context
-            cmds.colorManagementPrefs(refresh=True)
 
-        else:
-            self.log_debug("No entity found, not starting the maya ocio app")
+        #refresh the color management to force a rebuild of the context
+        cmds.colorManagementPrefs(refresh=True)
+
 
     @property
     def context_change_allowed(self):
