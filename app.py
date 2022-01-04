@@ -40,13 +40,13 @@ class mayaOCIO(Application):
             entity_name = self.context.entity['name']
             cameraColorspace, sequence = self._getCameraColorspaceAndSequence()
 
-            os.environ["EVENT"] = entity_name
+            os.environ["EVENT"] = str(entity_name)
             self.log_debug("Set environment variable 'EVENT' to %s" % entity_name)
 
-            os.environ['SEQUENCE'] = sequence
+            os.environ['SEQUENCE'] = str(sequence)
             self.log_debug("Set environment variable 'SEQUENCE' to %s" % sequence)
 
-            os.environ['CAMERA'] = cameraColorspace
+            os.environ['CAMERA'] = str(cameraColorspace)
             self.log_debug("Set environment variable 'CAMERA' to %s" % cameraColorspace)
 
 
