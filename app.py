@@ -128,9 +128,3 @@ class mayaOCIO(Application):
 
         # disable the 'Apply Output Transform to Renderer'
         cmds.colorManagementPrefs(e=True, outputTransformEnabled=False, outputTarget="renderer" )
-
-        # enable the 'Apply Output Transform to playblast'
-        cmds.colorManagementPrefs(e=True, outputTransformEnabled=True, outputTarget="playblast" )
-
-        # make the playblast use a color conversion, not a view transform
-        cmds.colorManagementPrefs(e=True, outputTransformUseColorConversion = True, outputTarget="playblast")
