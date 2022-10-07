@@ -110,13 +110,20 @@ class mayaOCIO(Application):
         ocioSubPath = tk.templates['ocio_config'].definition   # Compositing\OCIO\config.ocio
         root = tk.roots['secondary']
         ocioPath = os.path.join(root, ocioSubPath)
-        if os.path.isfile(ocioPath):
-            ocioPath = ocioPath.replace(os.path.sep, "/") # for maya
-            self.logger.info("Setting maya's ocio config to use : {}".format(ocioPath))
-            cmds.colorManagementPrefs(e=True, configFilePath=ocioPath)
-        else:
+        if not os.path.isfile(ocioPath):
             self.logger.error("OCIO file {} is missing from disk".format(ocioPath))
             return
+        else:
+            ocioPath = ocioPath.replace(os.path.sep, "/") # for maya
+            #set it
+            cmds.colorManagementPrefs(e=True, configFilePath=ocioPath)
+            # double check if it has been set correctly
+            check_ocio_path = cmds.colorManagementPrefs(q=True, configFilePath=True)
+            if check_ocio_path != ocioPath:
+                self.logger.error("Problem setting OCIO filepath. It should be set to {}, but it is {}".format(ocioPath, check_ocio_path))
+            else:
+                self.logger.info("Setting maya's ocio config to use : {}".format(ocioPath))
+
         
         # color managed pots :
         cmds.colorManagementPrefs(e=True, colorManagePots=True)
