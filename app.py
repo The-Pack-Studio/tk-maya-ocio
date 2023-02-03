@@ -31,24 +31,25 @@ class mayaOCIO(Application):
         App entry point
         """
 
-
         self._setupColorManagement()
 
         # make sure that the context has an entity associated - otherwise it wont work!
         if self.context.entity is not None:
 
             entity_name = self.context.entity['name']
-            cameraColorspace, sequence = self._getCameraColorspaceAndSequence()
+            camera_colorspace, review_colorspace, sequence = self._getShotGridInfo()
 
-            os.environ["EVENT"] = str(entity_name)
+            os.environ["EVENT"] = entity_name
             self.log_debug("Set environment variable 'EVENT' to %s" % entity_name)
 
-            os.environ['SEQUENCE'] = str(sequence)
+            os.environ['SEQUENCE'] = sequence
             self.log_debug("Set environment variable 'SEQUENCE' to %s" % sequence)
 
-            os.environ['CAMERA'] = str(cameraColorspace)
-            self.log_debug("Set environment variable 'CAMERA' to %s" % cameraColorspace)
+            os.environ['CAMERA'] = camera_colorspace
+            self.log_debug("Set environment variable 'CAMERA' to %s" % camera_colorspace)
 
+            os.environ['REVIEW'] = review_colorspace
+            self.log_debug("Set environment variable 'REVIEW' to %s" % review_colorspace)
 
         #refresh the color management to force a rebuild of the context
         cmds.colorManagementPrefs(refresh=True)
@@ -75,24 +76,33 @@ class mayaOCIO(Application):
     ### private methods
 
 
-    def _getCameraColorspaceAndSequence(self):
+    def _getShotGridInfo(self):
 
         tk = self.sgtk
 
-        cameraColorspace = None
+        camera_colorspace = None
+        review_colorspace = None
         sequence = None
 
         sg_filters = [["id", "is", self.context.entity["id"]]]  #  code of the current shot/asset
         sg_fields = ['sg_camera_colorspace', 'sg_review_colorspace', 'sg_sequence']
-        data = tk.shotgun.find_one(self.context.entity["type"], filters=sg_filters, fields=sg_fields)
-        if 'sg_camera_colorspace' in data:
-            if data['sg_camera_colorspace']:
-                cameraColorspace = data['sg_camera_colorspace']
-        if 'sg_sequence' in data:
-            if data['sg_sequence']:
-                sequence = data['sg_sequence']['name']
         
-        return cameraColorspace, sequence
+        data = tk.shotgun.find_one(self.context.entity["type"], filters=sg_filters, fields=sg_fields)
+
+        if data:
+            camera_colorspace = data.get('sg_camera_colorspace')
+            review_colorspace = data.get('sg_review_colorspace')
+            sequence = data.get('sg_sequence')
+            if sequence:
+                sequence = sequence.get('name')
+            else: sequence = None
+
+        else : 
+            self.logger.error("Error : could not find SG entity {} in ShotGrid".format(self.context.entity["name"]))
+
+        return str(camera_colorspace or ''), str(review_colorspace or ''), str(sequence or '')
+
+
 
 
     def _setupColorManagement(self):
