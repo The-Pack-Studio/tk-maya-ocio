@@ -37,7 +37,7 @@ class mayaOCIO(Application):
         if self.context.entity is not None:
 
             entity_name = self.context.entity['name']
-            camera_colorspace, review_colorspace, sequence = self._getShotGridInfo()
+            camera_colorspace, review_colorspace, sequence, shot_lut = self._getShotGridInfo()
 
             os.environ["EVENT"] = entity_name
             self.log_debug("Set environment variable 'EVENT' to %s" % entity_name)
@@ -48,8 +48,8 @@ class mayaOCIO(Application):
             os.environ['CAMERA'] = camera_colorspace
             self.log_debug("Set environment variable 'CAMERA' to %s" % camera_colorspace)
 
-            os.environ['REVIEW'] = review_colorspace
-            self.log_debug("Set environment variable 'REVIEW' to %s" % review_colorspace)
+            os.environ['SHOTLUT'] = shot_lut
+            self.log_debug("Set environment variable 'SHOTLUT' to %s" % shot_lut)
 
         #refresh the color management to force a rebuild of the context
         cmds.colorManagementPrefs(refresh=True)
@@ -83,24 +83,25 @@ class mayaOCIO(Application):
         camera_colorspace = None
         review_colorspace = None
         sequence = None
+        shot_lut = None
 
         sg_filters = [["id", "is", self.context.entity["id"]]]  #  code of the current shot/asset
-        sg_fields = ['sg_camera_colorspace', 'sg_review_colorspace', 'sg_sequence']
+        sg_fields = ['sg_camera_colorspace', 'sg_review_colorspace', 'sg_sequence', 'sg_shot_lut']
         
         data = tk.shotgun.find_one(self.context.entity["type"], filters=sg_filters, fields=sg_fields)
 
         if data:
             camera_colorspace = data.get('sg_camera_colorspace')
             review_colorspace = data.get('sg_review_colorspace')
+            shot_lut = data.get('sg_shot_lut')
             sequence = data.get('sg_sequence')
             if sequence:
                 sequence = sequence.get('name')
-            else: sequence = None
 
         else : 
             self.logger.error("Error : could not find SG entity {} in ShotGrid".format(self.context.entity["name"]))
 
-        return str(camera_colorspace or ''), str(review_colorspace or ''), str(sequence or '')
+        return str(camera_colorspace or ''), str(review_colorspace or ''), str(sequence or ''), str(shot_lut or '')
 
 
 
